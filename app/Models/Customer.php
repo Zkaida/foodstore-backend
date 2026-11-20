@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
@@ -22,8 +23,13 @@ class Customer extends Authenticatable implements JWTSubject
     protected function image(): Attribute
     {
         return Attribute::make(
-            get: fn ($value) => $value ? url('/storage/' . $value) : null,
+            get: fn ($value) => $value ? url('/storage/'.$value) : null,
         );
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
     }
 
     public function getJWTIdentifier()

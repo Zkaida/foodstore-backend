@@ -4,68 +4,66 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Services\MidtransPaymentStatus;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CallbackController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request, MidtransPaymentStatus $paymentStatus)
     {
-        $payload = $request->getContent();
-        $notification = json_decode($payload);
+        $notification = json_decode($request->getContent(), true);
 
-        if (!$notification) {
+        if (! is_array($notification)) {
+            return response()->json(['message' => 'Invalid payload'], 400);
+        }
+
+        foreach (['order_id', 'status_code', 'gross_amount', 'signature_key', 'transaction_status', 'payment_type'] as $field) {
+            if (! isset($notification[$field]) || ! is_scalar($notification[$field])) {
+                return response()->json(['message' => 'Invalid payload'], 400);
+            }
+        }
+
+        if (
+            $notification['order_id'] === '' ||
+            ! is_numeric($notification['status_code']) ||
+            ! is_numeric($notification['gross_amount'])
+        ) {
             return response()->json(['message' => 'Invalid payload'], 400);
         }
 
         $validSignatureKey = hash(
             'sha512',
-            $notification->order_id .
-            $notification->status_code .
-            $notification->gross_amount .
+            $notification['order_id'].
+            $notification['status_code'].
+            $notification['gross_amount'].
             config('midtrans.server_key')
         );
 
-        if ($notification->signature_key != $validSignatureKey) {
+        if (! hash_equals($validSignatureKey, (string) $notification['signature_key'])) {
+            Log::warning('Midtrans callback signature validation failed.', [
+                'order_id' => $notification['order_id'],
+            ]);
+
             return response()->json([
                 'message' => 'Invalid signature',
             ], 403);
         }
 
-        $transaction = $notification->transaction_status;
-        $type = $notification->payment_type;
-        $orderId = $notification->order_id;
+        $data_transaction = Transaction::where('invoice', $notification['order_id'])->first();
 
-        $data_transaction = Transaction::where('invoice', $orderId)->first();
-
-        if (!$data_transaction) {
+        if (! $data_transaction) {
             return response()->json(['message' => 'Transaction not found'], 404);
         }
 
-        if ($transaction == 'capture') {
-            if ($type == 'credit_card') {
-                $data_transaction->update([
-                    'status' => 'success',
-                ]);
-            }
-        } elseif ($transaction == 'settlement') {
-            $data_transaction->update([
-                'status' => 'success',
-            ]);
-        } elseif ($transaction == 'pending') {
-            $data_transaction->update([
-                'status' => 'pending',
-            ]);
-        } elseif ($transaction == 'deny') {
-            $data_transaction->update([
-                'status' => 'failed',
-            ]);
-        } elseif ($transaction == 'expire') {
-            $data_transaction->update([
-                'status' => 'expired',
-            ]);
-        } elseif ($transaction == 'cancel') {
-            $data_transaction->update([
-                'status' => 'failed',
+        if ($paymentStatus->apply(
+            $data_transaction,
+            (string) $notification['transaction_status'],
+            (string) $notification['payment_type']
+        )) {
+            Log::info('Midtrans transaction status updated.', [
+                'order_id' => $data_transaction->invoice,
+                'status' => $data_transaction->status,
             ]);
         }
 

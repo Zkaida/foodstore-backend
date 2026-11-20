@@ -48,12 +48,11 @@ class CustomerResource extends Resource
             ])
             ->actions([
                 // Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\DeleteAction::make()
+                    ->disabled(fn (Customer $record): bool => $record->transactions()->exists())
+                    ->tooltip(fn (Customer $record): ?string => $record->transactions()->exists()
+                        ? 'Pelanggan dengan riwayat pesanan tidak dapat dihapus.'
+                        : null),
             ]);
     }
 

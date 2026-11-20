@@ -56,7 +56,7 @@ class ProductResource extends Resource
                             ->label('Product Description')
                             ->placeholder('Product Description')
                             ->required(),
-                    ])
+                    ]),
             ]);
     }
 
@@ -82,12 +82,11 @@ class ProductResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\DeleteAction::make()
+                    ->disabled(fn (Product $record): bool => $record->transactionDetails()->exists())
+                    ->tooltip(fn (Product $record): ?string => $record->transactionDetails()->exists()
+                        ? 'Produk dengan riwayat pesanan tidak dapat dihapus.'
+                        : null),
             ]);
     }
 

@@ -65,7 +65,9 @@ class TransactionResource extends Resource
                 // Tables\Actions\BulkActionGroup::make([
                 //     Tables\Actions\DeleteBulkAction::make(),
                 // ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->poll('10s');
     }
 
     public static function getRelations(): array

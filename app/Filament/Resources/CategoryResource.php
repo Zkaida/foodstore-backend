@@ -35,7 +35,7 @@ class CategoryResource extends Resource
                             ->label('Category Name')
                             ->placeholder('Category Name')
                             ->required(),
-                    ])
+                    ]),
             ]);
     }
 
@@ -53,12 +53,11 @@ class CategoryResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\DeleteAction::make()
+                    ->disabled(fn (Category $record): bool => $record->products()->whereHas('transactionDetails')->exists())
+                    ->tooltip(fn (Category $record): ?string => $record->products()->whereHas('transactionDetails')->exists()
+                        ? 'Kategori berisi produk dengan riwayat pesanan dan tidak dapat dihapus.'
+                        : null),
             ]);
     }
 

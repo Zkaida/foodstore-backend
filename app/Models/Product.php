@@ -43,10 +43,15 @@ class Product extends Model
         return $this->hasMany(Rating::class);
     }
 
+    public function transactionDetails(): HasMany
+    {
+        return $this->hasMany(TransactionDetail::class);
+    }
+
     protected function image(): Attribute
     {
         return Attribute::make(
-            get: fn ($value) => $value ? url('/storage/' . $value) : null,
+            get: fn ($value) => $value ? url('/storage/'.$value) : null,
         );
     }
 }
